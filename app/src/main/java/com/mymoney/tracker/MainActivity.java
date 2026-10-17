@@ -38,6 +38,26 @@ public class MainActivity extends Activity {
                 }catch(Exception e){return null;}
             }
         });
+        web.setWebChromeClient(new android.webkit.WebChromeClient() {
+            @Override public boolean onJsConfirm(WebView view, String url, String message, android.webkit.JsResult result) {
+                new android.app.AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Confirm action")
+                    .setMessage(message)
+                    .setPositiveButton("Delete / Confirm", (dialog, which) -> result.confirm())
+                    .setNegativeButton("Cancel", (dialog, which) -> result.cancel())
+                    .setOnCancelListener(dialog -> result.cancel())
+                    .show();
+                return true;
+            }
+            @Override public boolean onJsAlert(WebView view, String url, String message, android.webkit.JsResult result) {
+                new android.app.AlertDialog.Builder(MainActivity.this)
+                    .setMessage(message)
+                    .setPositiveButton("OK", (dialog, which) -> result.confirm())
+                    .setOnCancelListener(dialog -> result.confirm())
+                    .show();
+                return true;
+            }
+        });
         web.loadUrl("https://appassets.androidplatform.net/index.html");
     }
     public class BackupBridge {
