@@ -11,7 +11,31 @@ if(screen==='repay'){let r=records.find(x=>x.id===repayId);if(!r){nav('list');re
 function openSection(s){section=s;tab='active';search='';nav('list')}function setTab(t){tab=t;render()}function setSearch(v){search=v;const pos=$('app').scrollTop;render();const inp=document.querySelector('.search');inp.focus();inp.setSelectionRange(v.length,v.length);$('app').scrollTop=pos}function openAdd(){editId=null;nav('form')}function openEdit(id){editId=id;nav('form')}function openRepay(id){repayId=id;nav('repay')}
 function saveRecord(e){e.preventDefault();const name=$('name').value.trim(),amount=Number($('amount').value),dt=$('date').value,notes=$('notes').value.trim();if(!name||!Number.isFinite(amount)||amount<=0||!dt)return alert('Please enter valid details.');let r=records.find(x=>x.id===editId);if(r){if(amount<paid(r))return alert('Amount cannot be less than already returned.');Object.assign(r,{name,amount,date:dt,notes})}else records.push({id:crypto.randomUUID(),section,name,amount,date:dt,notes,payments:[]});persist();nav('list')}
 function saveRepayment(e){e.preventDefault();let r=records.find(x=>x.id===repayId),amount=Number($('repayAmount').value);if(!r||!Number.isFinite(amount)||amount<=0||amount>balance(r))return alert('Enter an amount up to the pending balance.');r.payments.push({id:crypto.randomUUID(),amount,date:$('repayDate').value,notes:$('repayNotes').value.trim()});persist();if(balance(r)===0)tab='returned';nav('list')}
-function removeRecord(id){if(confirm('Permanently delete this record and its repayment history?')){records=records.filter(r=>r.id!==id);persist();render()}}
+function removeRecord(id){
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:#0008;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:360px">
+      <h3 style="margin-top:0">Delete record?</h3>
+      <p>This will permanently delete this record and its repayment history.</p>
+      <div style="display:flex;gap:12px;margin-top:20px">
+        <button id="cancelDelete" style="flex:1;padding:14px;border:0;border-radius:9px">Cancel</button>
+        <button id="confirmDelete" style="flex:1;padding:14px;border:0;border-radius:9px;background:#d93939;color:white">Delete</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#cancelDelete').onclick = () => overlay.remove();
+  overlay.querySelector('#confirmDelete').onclick = () => {
+    records = records.filter(x => x.id !== id);
+    persist();
+    overlay.remove();
+    render();
+  };
+}
 function exportData(){if(window.AndroidBackup){AndroidBackup.exportJson(JSON.stringify({version:1,records,exportedAt:new Date().toISOString()}));return}alert('Backup is available in the Android app.')}
 async function importData(e){let f=e.target.files?.[0];if(!f)return;try{let obj=JSON.parse(await f.text());if(!Array.isArray(obj.records)||!obj.records.every(r=>r&&typeof r.id==='string'&&['gave','took'].includes(r.section)&&typeof r.name==='string'&&Number.isFinite(r.amount)&&r.amount>0&&/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&Array.isArray(r.payments)&&r.payments.every(p=>Number.isFinite(p.amount)&&p.amount>0&&typeof p.date==='string')&&paid(r)<=r.amount))throw Error('Invalid backup');if(confirm('Restore this backup? This will replace all existing records.')){records=obj.records;persist();render()}}catch(err){alert('Could not restore backup: '+err.message)}e.target.value=''}
 if(window.AndroidBackup){window.restoreBackup=function(json){try{let obj=JSON.parse(json);if(!Array.isArray(obj.records))throw Error('Invalid backup');if(confirm('Restore backup? Existing records will be replaced.')){records=obj.records;persist();render()}}catch(e){alert('Invalid backup file')}};window.chooseBackup=function(){AndroidBackup.chooseBackup()};}render();
